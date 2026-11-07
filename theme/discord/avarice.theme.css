@@ -170,7 +170,7 @@ html:not(.avarice-gradient).visual-refresh.theme-midnight {
 /* ================================================================
    ATMOSPHERE - slow contour lines drifting over everything
    ================================================================ */
-#app-mount::after {
+:where(body:not(:has(video))) #app-mount::after {
     content: "";
     position: fixed;
     inset: 0;
