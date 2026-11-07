@@ -1,0 +1,275 @@
+/**
+ * @name Avarice
+ * @author Avarice Client
+ * @description Black glass, silver ink, slow-moving contour lines. Monotone with a drop of blood for what matters.
+ * @version 1.0.0
+ */
+
+/* ================================================================
+   KNOBS - tweak these
+   ================================================================ */
+:root {
+    --av-lines-opacity: 0.035;   /* contour lines over the app (0 = off) */
+    --av-lines-speed: 180s;      /* one full drift cycle */
+    --av-grayscale-servers: 1;   /* 1 = server icons drained of colour until hovered, 0 = off */
+
+    --av-void: #050506;          /* deepest black - server list, title bar */
+    --av-base: #09090b;          /* channel list, member list */
+    --av-chat: #0c0c0e;          /* chat area */
+    --av-raise: #121215;         /* cards, inputs, popouts */
+    --av-raise-2: #18181c;       /* hover on raised things */
+    --av-line: rgb(255 255 255 / 0.07);
+    --av-line-strong: rgb(255 255 255 / 0.14);
+
+    --av-ink: #e9e9ec;           /* primary text */
+    --av-ink-dim: #9a9aa0;       /* secondary text */
+    --av-ink-faint: #5e5e64;     /* muted text, icons */
+
+    --av-blood: #e5393c;         /* only for mentions, unread, danger */
+    --av-blood-soft: rgb(229 57 60 / 0.09);
+}
+
+/* ================================================================
+   PALETTE - map onto Discord's variables (old + refreshed names)
+   ================================================================ */
+:root,
+.theme-dark,
+.theme-darker,
+.theme-midnight,
+.theme-light,
+.visual-refresh,
+.visual-refresh.theme-dark,
+.visual-refresh.theme-darker,
+.visual-refresh.theme-midnight {
+    /* hover / selected layers */
+    --background-mod-subtle: rgb(255 255 255 / 0.035) !important;
+    --background-mod-normal: rgb(255 255 255 / 0.06) !important;
+    --background-mod-strong: rgb(255 255 255 / 0.09) !important;
+    --background-modifier-hover: rgb(255 255 255 / 0.04) !important;
+    --background-modifier-active: rgb(255 255 255 / 0.07) !important;
+    --background-modifier-selected: rgb(255 255 255 / 0.08) !important;
+    --background-modifier-accent: var(--av-line) !important;
+    --background-message-hover: rgb(255 255 255 / 0.018) !important;
+
+    /* borders */
+    --border-subtle: var(--av-line) !important;
+    --border-faint: var(--av-line) !important;
+    --border-normal: var(--av-line-strong) !important;
+    --border-strong: var(--av-line-strong) !important;
+
+    /* text */
+    --text-default: var(--av-ink) !important;
+    --text-normal: var(--av-ink) !important;
+    --text-strong: #ffffff !important;
+    --header-primary: #ffffff !important;
+    --header-secondary: var(--av-ink-dim) !important;
+    --text-subtle: var(--av-ink-dim) !important;
+    --text-secondary: var(--av-ink-dim) !important;
+    --text-muted: var(--av-ink-faint) !important;
+    --text-link: #d6d6da !important;
+    --channels-default: var(--av-ink-faint) !important;
+    --channel-icon: var(--av-ink-faint) !important;
+    --channel-text-area-placeholder: var(--av-ink-faint) !important;
+
+    /* icons / controls */
+    --interactive-normal: var(--av-ink-dim) !important;
+    --interactive-hover: var(--av-ink) !important;
+    --interactive-active: #ffffff !important;
+    --interactive-muted: #3a3a40 !important;
+    --icon-default: var(--av-ink-dim) !important;
+    --icon-muted: var(--av-ink-faint) !important;
+    --icon-strong: #ffffff !important;
+
+    /* "brand" (Discord blurple) -> dark steel, so buttons stay readable with white text */
+    --brand-experiment: #2a2a2f !important;
+    --brand-experiment-560: #333339 !important;
+    --brand-experiment-600: #1e1e22 !important;
+    --brand-500: #2a2a2f !important;
+    --brand-560: #333339 !important;
+    --brand-600: #1e1e22 !important;
+    --brand-360: #d6d6da !important;
+    --control-brand-foreground: #d6d6da !important;
+    --control-brand-foreground-new: #d6d6da !important;
+    --button-filled-brand-background: #2a2a2f !important;
+    --button-filled-brand-background-hover: #333339 !important;
+    --button-filled-brand-background-active: #1e1e22 !important;
+    --button-filled-brand-text: #ffffff !important;
+
+    /* blood: mentions, unread, danger */
+    --mention-foreground: #ff8a8c !important;
+    --mention-background: var(--av-blood-soft) !important;
+    --background-mentioned: var(--av-blood-soft) !important;
+    --background-mentioned-hover: rgb(229 57 60 / 0.13) !important;
+    --info-danger-foreground: var(--av-blood) !important;
+    --status-danger: var(--av-blood) !important;
+    --status-danger-background: var(--av-blood) !important;
+    --red-400: var(--av-blood) !important;
+    --red-500: var(--av-blood) !important;
+
+    /* scrollbars */
+    --scrollbar-thin-thumb: #26262b !important;
+    --scrollbar-thin-track: transparent !important;
+    --scrollbar-auto-thumb: #26262b !important;
+    --scrollbar-auto-track: transparent !important;
+    --scrollbar-auto-scrollbar-color-thumb: #26262b !important;
+    --scrollbar-auto-scrollbar-color-track: transparent !important;
+}
+
+/* ================================================================
+   BACKGROUNDS - only while no Nitro app theme (gradient) is picked.
+   Avarice Client adds .avarice-gradient to <html> when one is, so the gradient shows.
+   ================================================================ */
+html:not(.avarice-gradient),
+html:not(.avarice-gradient) .theme-dark,
+html:not(.avarice-gradient).theme-dark,
+html:not(.avarice-gradient) .theme-darker,
+html:not(.avarice-gradient).theme-darker,
+html:not(.avarice-gradient) .theme-midnight,
+html:not(.avarice-gradient).theme-midnight,
+html:not(.avarice-gradient) .theme-light,
+html:not(.avarice-gradient).theme-light,
+html:not(.avarice-gradient) .visual-refresh,
+html:not(.avarice-gradient).visual-refresh,
+html:not(.avarice-gradient) .visual-refresh.theme-dark,
+html:not(.avarice-gradient).visual-refresh.theme-dark,
+html:not(.avarice-gradient) .visual-refresh.theme-darker,
+html:not(.avarice-gradient).visual-refresh.theme-darker,
+html:not(.avarice-gradient) .visual-refresh.theme-midnight,
+html:not(.avarice-gradient).visual-refresh.theme-midnight {
+    /* backgrounds - refreshed UI */
+    --background-base-lowest: var(--av-void) !important;
+    --background-base-lower: var(--av-base) !important;
+    --background-base-low: var(--av-base) !important;
+    --background-surface-high: var(--av-raise) !important;
+    --background-surface-higher: var(--av-raise) !important;
+    --background-surface-highest: var(--av-raise-2) !important;
+    --chat-background-default: var(--av-chat) !important;
+    --input-background-default: var(--av-raise) !important;
+    --modal-background: var(--av-base) !important;
+    --modal-footer-background: var(--av-void) !important;
+    --app-frame-background: var(--av-void) !important;
+    --panel-bg: var(--av-base) !important;
+    --bg-overlay-chat: var(--av-chat) !important;
+    --bg-overlay-app-frame: var(--av-void) !important;
+    --custom-channel-members-bg: var(--av-base) !important;
+
+    /* backgrounds - classic names */
+    --background-primary: var(--av-chat) !important;
+    --background-secondary: var(--av-base) !important;
+    --background-secondary-alt: var(--av-void) !important;
+    --background-tertiary: var(--av-void) !important;
+    --background-floating: var(--av-raise) !important;
+    --background-nested-floating: var(--av-raise-2) !important;
+    --background-accent: var(--av-raise-2) !important;
+    --channeltextarea-background: var(--av-raise) !important;
+    --deprecated-card-bg: var(--av-raise) !important;
+    --deprecated-store-bg: var(--av-chat) !important;
+    --home-background: var(--av-chat) !important;
+}
+
+/* ================================================================
+   ATMOSPHERE - slow contour lines drifting over everything
+   ================================================================ */
+#app-mount::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10000;
+    opacity: var(--av-lines-opacity);
+    background-image: url("__LINES__");
+    background-size: 1600px 1152px;
+    background-repeat: repeat;
+    animation: av-drift var(--av-lines-speed) linear infinite;
+}
+
+@keyframes av-drift {
+    from { background-position: 0 0; }
+    to   { background-position: -1600px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #app-mount::after { animation: none; }
+}
+
+/* ================================================================
+   DETAILS
+   ================================================================ */
+
+/* text selection: ink on bone */
+::selection {
+    background: #e9e9ec;
+    color: #050506;
+}
+
+/* server icons drained of colour until you look at them */
+[class*="guilds_"] [class*="wrapper_"] img,
+[class*="guilds_"] [class*="icon_"] {
+    filter: grayscale(var(--av-grayscale-servers)) brightness(0.85);
+    transition: filter 260ms ease;
+}
+[class*="guilds_"] [class*="listItem_"]:hover img,
+[class*="guilds_"] [class*="listItem_"]:hover [class*="icon_"],
+[class*="guilds_"] [class*="selected_"] img {
+    filter: none;
+}
+
+/* selected channel: hairline of light on the left */
+[class*="containerDefault_"] [class*="modeSelected_"],
+[class*="link_"][aria-current="page"],
+[class*="selected_"] > [class*="link_"] {
+    box-shadow: inset 2px 0 0 #e9e9ec;
+}
+
+/* unread pill on the server list and mention badges in blood */
+[class*="guilds_"] [class*="item_"][style*="height: 8px"],
+[class*="guilds_"] [class*="pill_"] [class*="item_"] {
+    background: #e9e9ec !important;
+}
+[class*="numberBadge_"],
+[class*="lowerBadge_"] [class*="numberBadge_"] {
+    background-color: var(--av-blood) !important;
+    color: #050506 !important;
+    font-weight: 800 !important;
+    box-shadow: 0 0 0 3px var(--av-void) !important;
+}
+
+/* message input: glass slab with a hairline edge */
+[class*="channelTextArea_"] [class*="scrollableContainer_"],
+[class*="channelTextArea_"] > [class*="inner_"] {
+    background: var(--av-raise) !important;
+    border: 1px solid var(--av-line);
+    border-radius: 12px;
+}
+
+/* popouts, menus, modals: black glass */
+[class*="menu_"],
+[class*="popout_"],
+[class*="userPopoutOuter_"],
+[class*="root_"][role="dialog"] {
+    background: rgb(12 12 14 / 0.92) !important;
+    border: 1px solid var(--av-line-strong) !important;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.7) !important;
+}
+[class*="menu_"] [class*="item_"][class*="focused_"] {
+    background: rgb(255 255 255 / 0.08) !important;
+    color: #ffffff !important;
+}
+[class*="menu_"] [class*="colorDanger_"][class*="focused_"] {
+    background: var(--av-blood) !important;
+    color: #050506 !important;
+}
+
+/* code blocks */
+code,
+[class*="markup_"] pre,
+[class*="codeContainer_"] {
+    background: #070708 !important;
+    border-color: var(--av-line) !important;
+}
+
+/* thin scrollbars everywhere */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #26262b; border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
