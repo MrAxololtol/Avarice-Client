@@ -9,7 +9,7 @@
    KNOBS - tweak these
    ================================================================ */
 :root {
-    --av-lines-opacity: 0.035;   /* contour lines over the app (0 = off) */
+    --av-lines-opacity: 0.085;   /* contour lines over the app (0 = off) */
     --av-lines-speed: 180s;      /* one full drift cycle */
     --av-grayscale-servers: 1;   /* 1 = server icons drained of colour until hovered, 0 = off */
 
