@@ -170,13 +170,14 @@ html:not(.avarice-gradient).visual-refresh.theme-midnight {
 /* ================================================================
    ATMOSPHERE - slow contour lines drifting over everything
    ================================================================ */
-:where(body:not(:has(video))) #app-mount::after {
+#app-mount::after {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 10000;
     opacity: var(--av-lines-opacity);
+    mask: var(--av-contour-mask, none);
     background-image: url("__LINES__");
     background-size: 1600px 1152px;
     background-repeat: repeat;

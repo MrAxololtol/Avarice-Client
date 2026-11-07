@@ -70,11 +70,93 @@ function sampleAnimation(animation: Animation) {
     effect.updateTiming({ easing: `steps(${Math.max(1, Math.round((timing.duration * 12) / 1000))}, end)` });
 }
 
+function watchVideoBounds(root: HTMLElement) {
+    const videos = document.getElementsByTagName("video");
+    const tracked = new Set<HTMLVideoElement>();
+    let frame = 0;
+    function schedule() {
+        if (!frame) frame = requestAnimationFrame(update);
+    }
+    const resize = new ResizeObserver(schedule);
+    const visibility = new IntersectionObserver(schedule);
+    const attributes = new MutationObserver(schedule);
+    function update() {
+        frame = 0;
+        attributes.disconnect();
+        const layers: string[] = [];
+        for (const video of tracked) {
+            if (video.isConnected) continue;
+            tracked.delete(video);
+            resize.unobserve(video);
+            visibility.unobserve(video);
+        }
+        const ancestors = new Set<Element>();
+        for (const video of videos) {
+            if (!tracked.has(video)) {
+                resize.observe(video);
+                visibility.observe(video);
+                tracked.add(video);
+            }
+            for (let el: Element | null = video; el && !ancestors.has(el); el = el.parentElement) ancestors.add(el);
+            if (!video.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+            const rect = video.getBoundingClientRect();
+            const x = Math.max(0, Math.floor(rect.left)),
+                y = Math.max(0, Math.floor(rect.top));
+            const w = Math.min(innerWidth, Math.ceil(rect.right)) - x,
+                h = Math.min(innerHeight, Math.ceil(rect.bottom)) - y;
+            if (w > 0 && h > 0) layers.push(`linear-gradient(black,black) ${x}px ${y}px / ${w}px ${h}px no-repeat add`);
+        }
+        const mask = layers.length
+            ? ["linear-gradient(black,black) 0 0 / 100% 100% no-repeat subtract", ...layers].join(",")
+            : "";
+        if (root.style.getPropertyValue("--av-contour-mask") !== mask)
+            root.style.setProperty("--av-contour-mask", mask);
+        for (const ancestor of ancestors)
+            attributes.observe(ancestor, { attributes: true, attributeFilter: ["style", "class", "hidden"] });
+    }
+    const tree = new MutationObserver(records => {
+        if (
+            videos.length !== tracked.size ||
+            (tracked.size &&
+                records.some(record =>
+                    [...record.addedNodes, ...record.removedNodes].some(
+                        node => node instanceof Element && (node.matches("video") || node.querySelector("video"))
+                    )
+                ))
+        )
+            schedule();
+    });
+    const reposition = () => {
+        if (tracked.size) schedule();
+    };
+    tree.observe(root, { childList: true, subtree: true });
+    const shifts = new PerformanceObserver(reposition);
+    shifts.observe({ type: "layout-shift" });
+    document.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    document.addEventListener("fullscreenchange", reposition);
+    update();
+    return () => {
+        cancelAnimationFrame(frame);
+        tree.disconnect();
+        attributes.disconnect();
+        visibility.disconnect();
+        resize.disconnect();
+        shifts.disconnect();
+        tracked.clear();
+        root.style.removeProperty("--av-contour-mask");
+        document.removeEventListener("scroll", reposition, true);
+        window.removeEventListener("resize", reposition);
+        document.removeEventListener("fullscreenchange", reposition);
+    };
+}
+
 function startAppearance() {
     const style = document.createElement("style");
     style.textContent = styleText;
     document.head.append(style);
     const root = document.documentElement;
+    const stopVideoBounds = watchVideoBounds(root);
     const changeMotion = (event: AnimationEvent) => {
         if (root.dataset.avSpeed === "mid" && event.target instanceof Element)
             event.target.getAnimations().forEach(sampleAnimation);
@@ -117,6 +199,7 @@ function startAppearance() {
         () => {
             Settings.removeGlobalChangeListener(changed);
             document.removeEventListener("animationstart", changeMotion, true);
+            stopVideoBounds();
             style.remove();
         },
         { once: true }
