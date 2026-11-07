@@ -262,6 +262,20 @@ html:not(.avarice-gradient).visual-refresh.theme-midnight {
     color: #050506 !important;
 }
 
+/* Give floating panels their own solid surface when window transparency is off. */
+:root:not([data-av-glass]) :is(body, #app-mount) {
+    background-color: var(--av-tone, var(--av-chat, #0c0c0e)) !important;
+}
+:root:not([data-av-glass]) :is(
+    [role="dialog"], [role="menu"], [class*="menu_"], [class*="popout_"],
+    [class*="userProfileOuter"], [class*="userProfileModal"], [class*="userProfilePopout"],
+    [class*="standardSidebarView"], [class*="sidebarRegion_"], [class*="contentRegion_"],
+    [class*="settingsPage_"], [class*="settingsContainer_"]
+) {
+    background-color: var(--av-panel, var(--av-raise, #121215)) !important;
+    backdrop-filter: none !important;
+}
+
 /* code blocks */
 code,
 [class*="markup_"] pre,
