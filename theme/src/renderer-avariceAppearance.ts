@@ -70,40 +70,64 @@ function sampleAnimation(animation: Animation) {
     effect.updateTiming({ easing: `steps(${Math.max(1, Math.round((timing.duration * 12) / 1000))}, end)` });
 }
 
-function watchVideoBounds(root: HTMLElement) {
-    const videos = document.getElementsByTagName("video");
-    const tracked = new Set<HTMLVideoElement>();
+function watchMediaBounds(root: HTMLElement) {
+    const selector = "img, video";
+    const visible = new Set<Element>();
     let frame = 0;
     function schedule() {
         if (!frame) frame = requestAnimationFrame(update);
     }
     const resize = new ResizeObserver(schedule);
-    const visibility = new IntersectionObserver(schedule);
+    const updateVisibility = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+            if (entry.isIntersecting && entry.target.isConnected) {
+                visible.add(entry.target);
+                resize.observe(entry.target);
+            } else {
+                visible.delete(entry.target);
+                resize.unobserve(entry.target);
+            }
+        }
+        schedule();
+    });
     const attributes = new MutationObserver(schedule);
     function update() {
         frame = 0;
         attributes.disconnect();
         const layers: string[] = [];
-        for (const video of tracked) {
-            if (video.isConnected) continue;
-            tracked.delete(video);
-            resize.unobserve(video);
-            visibility.unobserve(video);
-        }
         const ancestors = new Set<Element>();
-        for (const video of videos) {
-            if (!tracked.has(video)) {
-                resize.observe(video);
-                visibility.observe(video);
-                tracked.add(video);
+        const clips = new Map<Element, { rect: DOMRect; x: boolean; y: boolean } | null>();
+        for (const media of visible) {
+            if (!media.isConnected) continue;
+            const rect = media.getBoundingClientRect();
+            let left = Math.max(0, rect.left),
+                top = Math.max(0, rect.top);
+            let right = Math.min(innerWidth, rect.right),
+                bottom = Math.min(innerHeight, rect.bottom);
+            for (let el = media.parentElement; el; el = el.parentElement) {
+                ancestors.add(el);
+                if (!clips.has(el)) {
+                    const style = getComputedStyle(el);
+                    const x = style.overflowX !== "visible",
+                        y = style.overflowY !== "visible";
+                    clips.set(el, x || y ? { rect: el.getBoundingClientRect(), x, y } : null);
+                }
+                const clip = clips.get(el);
+                if (clip?.x) {
+                    left = Math.max(left, clip.rect.left);
+                    right = Math.min(right, clip.rect.right);
+                }
+                if (clip?.y) {
+                    top = Math.max(top, clip.rect.top);
+                    bottom = Math.min(bottom, clip.rect.bottom);
+                }
             }
-            for (let el: Element | null = video; el && !ancestors.has(el); el = el.parentElement) ancestors.add(el);
-            if (!video.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
-            const rect = video.getBoundingClientRect();
-            const x = Math.max(0, Math.floor(rect.left)),
-                y = Math.max(0, Math.floor(rect.top));
-            const w = Math.min(innerWidth, Math.ceil(rect.right)) - x,
-                h = Math.min(innerHeight, Math.ceil(rect.bottom)) - y;
+            ancestors.add(media);
+            if (!media.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+            const x = Math.floor(left),
+                y = Math.floor(top);
+            const w = Math.ceil(right) - x,
+                h = Math.ceil(bottom) - y;
             if (w > 0 && h > 0) layers.push(`linear-gradient(black,black) ${x}px ${y}px / ${w}px ${h}px no-repeat add`);
         }
         const mask = layers.length
@@ -114,20 +138,28 @@ function watchVideoBounds(root: HTMLElement) {
         for (const ancestor of ancestors)
             attributes.observe(ancestor, { attributes: true, attributeFilter: ["style", "class", "hidden"] });
     }
+    function track(media: Element) {
+        if (media.isConnected) {
+            updateVisibility.observe(media);
+            if (visible.has(media)) schedule();
+        } else {
+            updateVisibility.unobserve(media);
+            resize.unobserve(media);
+            if (visible.delete(media)) schedule();
+        }
+    }
     const tree = new MutationObserver(records => {
-        if (
-            videos.length !== tracked.size ||
-            (tracked.size &&
-                records.some(record =>
-                    [...record.addedNodes, ...record.removedNodes].some(
-                        node => node instanceof Element && (node.matches("video") || node.querySelector("video"))
-                    )
-                ))
-        )
-            schedule();
+        for (const record of records) {
+            for (const node of [...record.removedNodes, ...record.addedNodes]) {
+                if (!(node instanceof Element)) continue;
+                if (node.matches(selector)) track(node);
+                node.querySelectorAll(selector).forEach(track);
+            }
+        }
     });
+    root.querySelectorAll(selector).forEach(track);
     const reposition = () => {
-        if (tracked.size) schedule();
+        if (visible.size) schedule();
     };
     tree.observe(root, { childList: true, subtree: true });
     const shifts = new PerformanceObserver(reposition);
@@ -140,10 +172,10 @@ function watchVideoBounds(root: HTMLElement) {
         cancelAnimationFrame(frame);
         tree.disconnect();
         attributes.disconnect();
-        visibility.disconnect();
+        updateVisibility.disconnect();
         resize.disconnect();
         shifts.disconnect();
-        tracked.clear();
+        visible.clear();
         root.style.removeProperty("--av-contour-mask");
         document.removeEventListener("scroll", reposition, true);
         window.removeEventListener("resize", reposition);
@@ -156,7 +188,7 @@ function startAppearance() {
     style.textContent = styleText;
     document.head.append(style);
     const root = document.documentElement;
-    const stopVideoBounds = watchVideoBounds(root);
+    const stopMediaBounds = watchMediaBounds(root);
     const changeMotion = (event: AnimationEvent) => {
         if (root.dataset.avSpeed === "mid" && event.target instanceof Element)
             event.target.getAnimations().forEach(sampleAnimation);
@@ -199,7 +231,7 @@ function startAppearance() {
         () => {
             Settings.removeGlobalChangeListener(changed);
             document.removeEventListener("animationstart", changeMotion, true);
-            stopVideoBounds();
+            stopMediaBounds();
             style.remove();
         },
         { once: true }
