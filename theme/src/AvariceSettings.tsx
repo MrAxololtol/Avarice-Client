@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { Modal, openModal, useState, createRoot, UserStore } from "@vencord/types/webpack/common";
+import { Modal, openModal, useState, useMemo, createRoot, UserStore } from "@vencord/types/webpack/common";
+import { palettes, performanceModes } from "renderer/avariceAppearance";
 import {
     applyAvariceAura,
     applyAvariceCosmetics,
@@ -77,7 +78,11 @@ const tileName = {
 export function AvariceSettings({ settings, profileOnly = false }: { settings: any; profileOnly?: boolean }) {
     const s = settings as any;
     const picked: string[] = s.avariceBadges ?? ["avarice"];
-    const [catalog, setCatalog] = useState(getAvariceCatalog);
+    const [catalog, setCatalog] = useState<ReturnType<typeof getAvariceCatalog> | null>(null);
+    const [pages, setPages] = useState<Record<string, number>>({});
+    const sorted = useMemo(() => (catalog ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
+    const [tint, setTint] = useState<number>(s.avariceGlassTint ?? 55);
+    const [restartNeeded, setRestartNeeded] = useState(false);
     const [loading, setLoading] = useState(false);
     const [badgeName, setBadgeName] = useState("");
     const [badgeIcon, setBadgeIcon] = useState("");
@@ -98,6 +103,85 @@ export function AvariceSettings({ settings, profileOnly = false }: { settings: a
 
     return (
         <div>
+            {!profileOnly && (
+                <>
+                    <label style={label}>
+                        Performance preset
+                        <select
+                            style={input}
+                            value={s.avaricePerformance ?? "mid"}
+                            onChange={e => {
+                                s.avaricePerformance = e.currentTarget.value;
+                            }}
+                        >
+                            {Object.entries(performanceModes).map(([id, title]) => (
+                                <option key={id} value={id}>
+                                    {title}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <label style={label}>
+                        Theme preset
+                        <select
+                            style={input}
+                            value={s.avaricePalette ?? "original"}
+                            onChange={e => {
+                                s.avaricePalette = e.currentTarget.value;
+                            }}
+                        >
+                            {Object.entries(palettes).map(([id, [title]]) => (
+                                <option key={id} value={id}>
+                                    {title}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <label style={label}>
+                        <input
+                            type="checkbox"
+                            checked={!!s.avariceSeeThrough}
+                            onChange={e => {
+                                s.avariceSeeThrough = e.currentTarget.checked;
+                                setRestartNeeded(true);
+                            }}
+                        />{" "}
+                        See-through window
+                    </label>
+                    {s.avariceSeeThrough && (
+                        <label style={label}>
+                            Background tint · {tint}%
+                            <input
+                                style={input}
+                                type="range"
+                                min={0}
+                                max={85}
+                                value={tint}
+                                onChange={e => {
+                                    const value = Number(e.currentTarget.value);
+                                    setTint(value);
+                                    document.documentElement.style.setProperty("--av-tint", String(value / 100));
+                                }}
+                                onBlur={() => {
+                                    s.avariceGlassTint = tint;
+                                }}
+                                onPointerUp={() => {
+                                    s.avariceGlassTint = tint;
+                                }}
+                                onKeyUp={() => {
+                                    s.avariceGlassTint = tint;
+                                }}
+                            />
+                            <span style={hint}>0% gives a clear background. Increase tint for easier reading.</span>
+                        </label>
+                    )}
+                    {restartNeeded && (
+                        <button type="button" style={input} onClick={() => VesktopNative.app.relaunch()}>
+                            Restart to apply window transparency
+                        </button>
+                    )}
+                </>
+            )}
             {!profileOnly && (
                 <button style={input} onClick={openAvariceProfileEditor}>
                     Edit badges & username
@@ -163,7 +247,7 @@ export function AvariceSettings({ settings, profileOnly = false }: { settings: a
                         Shop cosmetics{" "}
                         <span style={hint}>
                             (all unlocked, client-side.{" "}
-                            {catalog.length
+                            {catalog?.length
                                 ? `${catalog.length} items loaded`
                                 : "Open Discord's Shop once to load them"}
                             )
@@ -171,13 +255,23 @@ export function AvariceSettings({ settings, profileOnly = false }: { settings: a
                     </div>
                     <div style={{ ...row, marginBottom: "14px" }}>
                         <button
+                            style={input}
+                            onClick={() => {
+                                setCatalog(catalog ? null : getAvariceCatalog());
+                                setPages({});
+                            }}
+                        >
+                            {catalog ? "Close catalog" : "Browse cached items"}
+                        </button>
+                        <button
                             style={{ ...tile(false), width: "auto", height: "auto", padding: "6px 12px" }}
                             disabled={loading}
                             onClick={async () => {
                                 setLoading(true);
                                 try {
                                     await loadAvariceShop();
-                                    setCatalog([...getAvariceCatalog()]);
+                                    setCatalog(getAvariceCatalog());
+                                    setPages({});
                                 } finally {
                                     setLoading(false);
                                 }
@@ -198,48 +292,66 @@ export function AvariceSettings({ settings, profileOnly = false }: { settings: a
                             Copy debug info
                         </button>
                     </div>
-                    {(
-                        [
-                            ["decoration", "Avatar decorations"],
-                            ["effect", "Profile effects"],
-                            ["nameplate", "Nameplates"]
-                        ] as const
-                    ).map(([kind, title]) => {
-                        const items = catalog.filter(i => i.kind === kind).sort((x, y) => x.name.localeCompare(y.name));
-                        const current = s["avarice_" + kind] ?? "";
-                        const pick = (sku: string) => {
-                            s["avarice_" + kind] = sku || undefined;
-                            applyAvariceCosmetics();
-                        };
-                        return (
-                            <div key={kind} style={{ marginBottom: "18px" }}>
-                                <div style={{ ...hint, marginBottom: "8px", fontWeight: 600 }}>
-                                    {title} ({items.length})
-                                </div>
-                                <div style={gridStyle}>
-                                    <button style={tile(current === "")} onClick={() => pick("")} title="None">
-                                        <span style={{ fontSize: "22px", opacity: 0.6 }}>⊘</span>
-                                        <span style={tileName}>None</span>
-                                    </button>
-                                    {items.map(i => (
-                                        <button
-                                            key={i.skuId}
-                                            style={tile(current === i.skuId)}
-                                            onClick={() => pick(i.skuId)}
-                                            title={i.name}
-                                        >
-                                            {i.data?.preview ? (
-                                                <img src={i.data.preview} alt="" style={tileImg} loading="lazy" />
-                                            ) : (
-                                                <span style={{ fontSize: "20px", opacity: 0.5 }}>✦</span>
-                                            )}
-                                            <span style={tileName}>{i.name}</span>
+                    {catalog &&
+                        (
+                            [
+                                ["decoration", "Avatar decorations"],
+                                ["effect", "Profile effects"],
+                                ["nameplate", "Nameplates"]
+                            ] as const
+                        ).map(([kind, title]) => {
+                            const items = sorted.filter(i => i.kind === kind);
+                            const pageSize = 12;
+                            const lastPage = Math.max(0, Math.ceil(items.length / pageSize) - 1);
+                            const page = Math.min(pages[kind] ?? 0, lastPage);
+                            const go = (next: number) => setPages(previous => ({ ...previous, [kind]: next }));
+                            const current = s["avarice_" + kind] ?? "";
+                            const pick = (sku: string) => {
+                                s["avarice_" + kind] = sku || undefined;
+                                applyAvariceCosmetics();
+                            };
+                            return (
+                                <div key={kind} style={{ marginBottom: "18px" }}>
+                                    <div style={{ ...hint, marginBottom: "8px", fontWeight: 600 }}>
+                                        {title} ({items.length})
+                                    </div>
+                                    <div style={gridStyle}>
+                                        <button style={tile(current === "")} onClick={() => pick("")} title="None">
+                                            <span style={{ fontSize: "22px", opacity: 0.6 }}>⊘</span>
+                                            <span style={tileName}>None</span>
                                         </button>
-                                    ))}
+                                        {items.slice(page * pageSize, (page + 1) * pageSize).map(i => (
+                                            <button
+                                                key={i.skuId}
+                                                style={tile(current === i.skuId)}
+                                                onClick={() => pick(i.skuId)}
+                                                title={i.name}
+                                            >
+                                                {i.data?.preview ? (
+                                                    <img src={i.data.preview} alt="" style={tileImg} loading="lazy" />
+                                                ) : (
+                                                    <span style={{ fontSize: "20px", opacity: 0.5 }}>✦</span>
+                                                )}
+                                                <span style={tileName}>{i.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {lastPage > 0 && (
+                                        <div style={row}>
+                                            <button disabled={page === 0} onClick={() => go(page - 1)}>
+                                                Previous
+                                            </button>
+                                            <span style={hint}>
+                                                {page + 1} / {lastPage + 1}
+                                            </span>
+                                            <button disabled={page === lastPage} onClick={() => go(page + 1)}>
+                                                Next
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
 
                     <div style={label}>
                         Profile theme colours <span style={hint}>(the Nitro profile gradient, client-side)</span>
@@ -550,6 +662,8 @@ export function isProfileEditor(panel: Element) {
         labels.some(text => /^(display name|change avatar|avatar|change banner)$/i.test(text))
     );
 }
+const pendingPanels = new Set<Element>();
+let rescanProfiles = true;
 const updateProfileEditors = () => {
     profileFrame = 0;
     for (const [host, root] of roots) {
@@ -558,12 +672,16 @@ const updateProfileEditors = () => {
             roots.delete(host);
         }
     }
-    const panels = [...document.querySelectorAll(profileSelector)].filter(
-        panel => !panel.closest("[data-avarice-profile]")
+    const panels = rescanProfiles ? document.querySelectorAll(profileSelector) : pendingPanels;
+    const eligible = [...panels].filter(
+        panel =>
+            panel.isConnected &&
+            !panel.closest("[data-avarice-profile]") &&
+            !panel.querySelector("[data-avarice-profile]") &&
+            isProfileEditor(panel)
     );
-    // Only the profile editor gets the inline picker. The account popout no longer shows an
-    // "Edit badges" toggle: badges are edited in Settings > Avarice > Edit badges & username.
-    const eligible = panels.filter(panel => isProfileEditor(panel));
+    pendingPanels.clear();
+    rescanProfiles = false;
     for (const panel of eligible) {
         if (eligible.some(child => child !== panel && panel.contains(child))) continue;
         if (panel.querySelector("[data-avarice-profile]")) continue;
@@ -598,21 +716,27 @@ function editProfileName(event: MouseEvent | KeyboardEvent) {
     openUsernameEditor();
 }
 const profileObserver = new MutationObserver(records => {
-    if (
-        profileFrame ||
-        records.every(record => record.target instanceof Element && record.target.closest("[data-avarice-profile]"))
-    )
-        return;
-    const relevant = records.some(
-        record =>
-            (record.target instanceof Element && record.target.closest(profileSelector)) ||
-            [...record.addedNodes].some(
-                node =>
-                    node instanceof Element && (node.matches(profileSelector) || node.querySelector(profileSelector))
-            )
-    );
-    if (!relevant && ![...roots.keys()].some(host => !host.isConnected)) return;
-    profileFrame = requestAnimationFrame(updateProfileEditors);
+    for (const record of records) {
+        if (rescanProfiles) break;
+        if (!(record.target instanceof Element) || record.target.closest("[data-avarice-profile]")) continue;
+        let parent = record.target.closest(profileSelector);
+        while (parent) {
+            pendingPanels.add(parent);
+            parent = parent.parentElement?.closest(profileSelector) ?? null;
+        }
+        for (const node of record.addedNodes) {
+            if (!(node instanceof Element)) continue;
+            if (node.matches(profileSelector)) pendingPanels.add(node);
+            for (const panel of node.querySelectorAll(profileSelector)) pendingPanels.add(panel);
+        }
+        if (pendingPanels.size > 64) {
+            pendingPanels.clear();
+            rescanProfiles = true;
+        }
+    }
+    if (!profileFrame && (rescanProfiles || pendingPanels.size || [...roots.keys()].some(host => !host.isConnected))) {
+        profileFrame = requestAnimationFrame(updateProfileEditors);
+    }
 });
 export async function startAvariceProfileEditor() {
     try {
@@ -641,6 +765,7 @@ window.addEventListener(
         document.removeEventListener("keydown", editProfileName, true);
         for (const root of roots.values()) root.unmount();
         roots.clear();
+        pendingPanels.clear();
     },
     { once: true }
 );

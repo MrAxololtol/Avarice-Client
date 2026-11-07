@@ -24,3 +24,7 @@ LICENSE              GPL-3.0 (inherited from Vesktop/Vencord)
 ```
 
 Based on [Vesktop](https://github.com/Vencord/Vesktop) and [Vencord](https://github.com/Vendicated/Vencord) (GPL-3.0).
+
+In Discord, open **User Settings → Avarice Client → Avarice** to change appearance and performance. **Ultrafast** removes CSS motion, contour effects and blur. **Mid** samples CSS animations at about 12 frames per second. **Full** preserves original motion. Presets apply immediately. The shop catalog loads when opened and shows 12 items per category per page.
+
+Choose Original, Blue slate, Pine, Black iris or Ember under **Theme preset**. For a transparent desktop window, enable **See-through window** and use the restart button. Set the tint to 0% for a clear background or raise it for contrast. Menus and input fields keep solid backgrounds. Window transparency requires desktop compositor support.

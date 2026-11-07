@@ -178,6 +178,17 @@ if (fs.existsSync(themeCss)) {
     }
 
     // ---- extras: Nitro plugins, client-side name / badges / aura, settings section ----
+    fs.copyFileSync(path.join(srcDir2, "renderer-avariceAppearance.ts"), p("src", "renderer", "avariceAppearance.ts"));
+    fs.copyFileSync(path.join(srcDir2, "preload-avariceMemory.ts"), p("src", "preload", "avariceMemory.ts"));
+    if (!inject(p("src", "preload", "index.ts"), 'import { VesktopNative } from "./VesktopNative";', 'import "./avariceMemory";'))
+        throw new Error("Cannot locate the preload entry point for Avarice memory settings");
+    const windowFile = p("src", "main", "mainWindow.ts");
+    const oldWindow = fs.readFileSync(windowFile, "utf8");
+    const glassCondition = "if (transparent || (Settings.store as any).avariceSeeThrough === true)";
+    if (!oldWindow.includes(glassCondition)) {
+        if (!oldWindow.includes("if (transparent) {")) throw new Error("Cannot locate the main window transparency setting");
+        fs.writeFileSync(windowFile, oldWindow.replace("if (transparent) {", glassCondition + " {"));
+    }
     fs.copyFileSync(path.join(srcDir2, "renderer-avariceExtras.ts"), p("src", "renderer", "avariceExtras.ts"));
     fs.copyFileSync(
         path.join(srcDir2, "AvariceSettings.tsx"),

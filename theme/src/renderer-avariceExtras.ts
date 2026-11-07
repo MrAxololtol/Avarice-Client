@@ -178,7 +178,7 @@ export function applyAvariceAura() {
     const me = V()?.Webpack?.Common?.UserStore?.getCurrentUser?.()?.id;
     let el = document.getElementById("avarice-aura") as HTMLStyleElement | null;
     const mode = S().avariceAura ?? "off";
-    if (!me || mode === "off" || !AURA_COLORS[mode]) {
+    if (!me || S().avaricePerformance === "ultrafast" || mode === "off" || !AURA_COLORS[mode]) {
         el?.remove();
         return;
     }
@@ -291,13 +291,14 @@ function ingestCategories(source: any): number {
     if (!products.length) return 0;
     const seen = new Map(getAvariceCatalog().map(i => [i.kind + i.skuId, i]));
     const before = seen.size;
+    let changed = false;
     for (const product of products) {
         for (const item of product.items ?? []) {
             const kind = classify(product, item);
             if (!kind) continue;
             const skuId = item.skuId ?? item.sku_id ?? product.skuId ?? product.sku_id;
             if (!skuId) continue;
-            seen.set(kind + skuId, {
+            const entry = {
                 kind,
                 skuId,
                 name: product.name ?? item.label ?? item.name ?? skuId,
@@ -309,16 +310,22 @@ function ingestCategories(source: any): number {
                     label: item.label ?? product.name,
                     preview: previewFor(kind, item, product)
                 }
-            });
+            };
+            const previous = seen.get(kind + skuId);
+            if (
+                previous &&
+                previous.name === entry.name &&
+                JSON.stringify(previous.data) === JSON.stringify(entry.data)
+            )
+                continue;
+            seen.set(kind + skuId, entry);
+            changed = true;
         }
     }
+    if (!changed) return 0;
     try {
-        const next = [...seen.values()].slice(-1500);
-        const serialized = JSON.stringify(next);
-        if (serialized !== JSON.stringify(getAvariceCatalog())) {
-            catalogCache = next;
-            localStorage.setItem(CATALOG_KEY, serialized);
-        }
+        catalogCache = [...seen.values()].slice(-1500);
+        localStorage.setItem(CATALOG_KEY, JSON.stringify(catalogCache));
     } catch {}
     return seen.size - before;
 }
